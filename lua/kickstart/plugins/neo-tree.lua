@@ -18,7 +18,14 @@ return {
       window = {
         mappings = {
           ['\\'] = 'close_window',
+          ['<Space>'] = 'open',
         },
+      },
+    },
+    -- Disable leader key timeout in neo-tree by mapping space directly
+    window = {
+      mappings = {
+        ['<Space>'] = 'open',
       },
     },
   },
