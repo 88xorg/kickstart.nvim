@@ -68,7 +68,10 @@ require('lazy').setup({
           F12 = '<F12>',
         },
       },
-      spec = {},
+      spec = {
+        { '<leader>j', group = 'Version Control' },
+        { '<leader>jt', group = 'VC Toggles' },
+      },
     },
   },
 
@@ -134,11 +137,16 @@ require('lazy').setup({
     event = 'BufReadPost',
     dependencies = { 'lewis6991/gitsigns.nvim' },
     config = function()
+      -- Diagnostic highlights
       vim.api.nvim_set_hl(0, 'ScrollbarError', { fg = '#db4b4b' })
       vim.api.nvim_set_hl(0, 'ScrollbarWarn', { fg = '#e0af68' })
       vim.api.nvim_set_hl(0, 'ScrollbarInfo', { fg = '#0db9d7' })
       vim.api.nvim_set_hl(0, 'ScrollbarHint', { fg = '#10b981' })
       vim.api.nvim_set_hl(0, 'ScrollbarHandle', { bg = '#444444' })
+      -- Git diff highlights
+      vim.api.nvim_set_hl(0, 'ScrollbarGitAdd', { fg = '#9ece6a' })
+      vim.api.nvim_set_hl(0, 'ScrollbarGitChange', { fg = '#e0af68' })
+      vim.api.nvim_set_hl(0, 'ScrollbarGitDelete', { fg = '#db4b4b' })
       require('scrollbar').setup {
         show = true,
         handle = { highlight = 'ScrollbarHandle' },
@@ -241,9 +249,10 @@ require('lazy').setup({
     },
   },
 
-  -- Git: signs
+  -- Git: signs (hunk-level review)
   {
     'lewis6991/gitsigns.nvim',
+    event = { 'BufReadPre', 'BufNewFile' },
     opts = {
       signs = {
         add = { text = '+' },
@@ -251,6 +260,112 @@ require('lazy').setup({
         delete = { text = '_' },
         topdelete = { text = '‾' },
         changedelete = { text = '~' },
+      },
+      signs_staged = {
+        add = { text = '┃' },
+        change = { text = '┃' },
+        delete = { text = '┃' },
+        topdelete = { text = '┃' },
+        changedelete = { text = '┃' },
+      },
+      signs_staged_enable = true,
+      on_attach = function(bufnr)
+        local gs = require 'gitsigns'
+        local function map(mode, l, r, opts)
+          opts = opts or {}
+          opts.buffer = bufnr
+          vim.keymap.set(mode, l, r, opts)
+        end
+
+        -- Navigation
+        map('n', ']h', function()
+          if vim.wo.diff then
+            vim.cmd.normal { ']c', bang = true }
+          else
+            gs.nav_hunk 'next'
+          end
+        end, { desc = 'Next hunk' })
+        map('n', '[h', function()
+          if vim.wo.diff then
+            vim.cmd.normal { '[c', bang = true }
+          else
+            gs.nav_hunk 'prev'
+          end
+        end, { desc = 'Previous hunk' })
+
+        -- Hunk actions (accept = stage, reject = reset)
+        map('n', '<leader>js', gs.stage_hunk, { desc = 'Stage hunk (accept)' })
+        map('n', '<leader>jr', gs.reset_hunk, { desc = 'Reset hunk (reject)' })
+        map('v', '<leader>js', function()
+          gs.stage_hunk { vim.fn.line '.', vim.fn.line 'v' }
+        end, { desc = 'Stage selection' })
+        map('v', '<leader>jr', function()
+          gs.reset_hunk { vim.fn.line '.', vim.fn.line 'v' }
+        end, { desc = 'Reset selection' })
+
+        -- Buffer actions (accept/reject entire file)
+        map('n', '<leader>jS', gs.stage_buffer, { desc = 'Stage buffer (accept file)' })
+        map('n', '<leader>jR', gs.reset_buffer, { desc = 'Reset buffer (reject file)' })
+        map('n', '<leader>ju', gs.undo_stage_hunk, { desc = 'Undo stage hunk' })
+
+        -- Preview and inspect
+        map('n', '<leader>jp', gs.preview_hunk, { desc = 'Preview hunk' })
+        map('n', '<leader>jb', gs.blame_line, { desc = 'Blame line' })
+
+        -- Toggles
+        map('n', '<leader>jtb', gs.toggle_current_line_blame, { desc = 'Toggle line blame' })
+        map('n', '<leader>jtd', gs.toggle_deleted, { desc = 'Toggle deleted' })
+
+        -- Text object
+        map({ 'o', 'x' }, 'ih', ':<C-U>Gitsigns select_hunk<CR>', { desc = 'Select hunk' })
+      end,
+    },
+  },
+
+  -- Git: diffview (repo-wide diff review)
+  {
+    'sindrets/diffview.nvim',
+    dependencies = { 'nvim-lua/plenary.nvim' },
+    cmd = { 'DiffviewOpen', 'DiffviewClose', 'DiffviewToggleFiles', 'DiffviewFocusFiles', 'DiffviewFileHistory' },
+    keys = {
+      { '<leader>jd', '<cmd>DiffviewOpen<CR>', desc = 'Diffview: Open' },
+      { '<leader>jD', '<cmd>DiffviewClose<CR>', desc = 'Diffview: Close' },
+      { '<leader>jf', '<cmd>DiffviewToggleFiles<CR>', desc = 'Diffview: Toggle files' },
+      { '<leader>jh', '<cmd>DiffviewFileHistory %<CR>', desc = 'Diffview: File history' },
+      { '<leader>jH', '<cmd>DiffviewFileHistory<CR>', desc = 'Diffview: Repo history' },
+    },
+    opts = {
+      enhanced_diff_hl = true,
+      use_icons = vim.g.have_nerd_font,
+      view = {
+        default = { layout = 'diff2_horizontal' },
+        file_history = { layout = 'diff2_horizontal' },
+      },
+      file_panel = {
+        listing_style = 'tree',
+        win_config = { position = 'left', width = 35 },
+      },
+      keymaps = {
+        view = {
+          { 'n', '<tab>', '<cmd>DiffviewToggleFiles<CR>', { desc = 'Toggle file panel' } },
+          { 'n', 'q', '<cmd>DiffviewClose<CR>', { desc = 'Close diffview' } },
+        },
+        file_panel = {
+          { 'n', 'q', '<cmd>DiffviewClose<CR>', { desc = 'Close diffview' } },
+        },
+      },
+      hooks = {
+        diff_buf_read = function(bufnr)
+          -- Show full file context (no folding)
+          vim.opt_local.foldenable = false
+          vim.opt_local.foldlevel = 99
+        end,
+        diff_buf_win_enter = function(bufnr, winid, ctx)
+          -- Expand all folds when entering diff window
+          if ctx.layout_name == 'diff2_horizontal' or ctx.layout_name == 'diff2_vertical' then
+            vim.wo[winid].foldenable = false
+          end
+        end,
       },
     },
   },
@@ -464,7 +579,6 @@ require('lazy').setup({
       indent = { enable = true, disable = { 'ruby' } },
     },
   },
-
 }, {
   ui = {
     icons = vim.g.have_nerd_font and {} or {

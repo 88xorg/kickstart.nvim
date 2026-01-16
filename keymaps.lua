@@ -99,3 +99,61 @@ end, { desc = 'Save and close buffer' })
 
 -- Terminal mode
 map('t', '<Esc><Esc>', '<C-\\><C-n>', { desc = 'Exit terminal mode' })
+
+-- Claude Review Workflow
+vim.g.claude_checkpoint = nil
+
+-- Create checkpoint (before running Claude prompt)
+map('n', '<leader>vc', function()
+  local head = vim.fn.system('git rev-parse HEAD'):gsub('%s+', '')
+  if vim.v.shell_error ~= 0 then
+    vim.notify('Not in a git repository', vim.log.levels.ERROR)
+    return
+  end
+  vim.g.claude_checkpoint = head
+  vim.notify('Checkpoint: ' .. head:sub(1, 8), vim.log.levels.INFO)
+end, { desc = 'Create checkpoint' })
+
+-- Accept prompt (commit staged changes)
+map('n', '<leader>va', function())
+  local staged = vim.fn.system 'git diff --cached --quiet'
+  if vim.v.shell_error == 0 then
+    vim.notify('No staged changes', vim.log.levels.WARN)
+    return
+  end
+  vim.ui.input({ prompt = 'Commit message: ', default = 'Accept Claude changes' }, function(msg)
+    if not msg then
+      return
+    end
+    vim.fn.system('git commit -m "' .. msg:gsub('"', '\\"') .. '"')
+    if vim.v.shell_error == 0 then
+      vim.notify('Committed', vim.log.levels.INFO)
+      vim.g.claude_checkpoint = nil
+    else
+      vim.notify('Commit failed', vim.log.levels.ERROR)
+    end
+  end)
+end, { desc = 'Accept prompt (commit)' })
+
+-- Reject prompt (hard reset to checkpoint)
+map('n', '<leader>vx', function()
+  if not vim.g.claude_checkpoint then
+    vim.notify('No checkpoint set', vim.log.levels.ERROR)
+    return
+  end
+  vim.ui.select({ 'Yes, discard all', 'Cancel' }, {
+    prompt = 'Reset to ' .. vim.g.claude_checkpoint:sub(1, 8) .. '?',
+  }, function(choice)
+    if choice == 'Yes, discard all' then
+      vim.fn.system('git reset --hard ' .. vim.g.claude_checkpoint)
+      vim.cmd 'bufdo e!'
+      vim.notify('Reset complete', vim.log.levels.INFO)
+      vim.g.claude_checkpoint = nil
+    end
+  end)
+end, { desc = 'Reject prompt (reset)' })
+
+-- Git status via telescope
+map('n', '<leader>vv', function()
+  require('telescope.builtin').git_status()
+end, { desc = 'Git status' })
