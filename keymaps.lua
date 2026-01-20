@@ -91,12 +91,33 @@ map('n', '<leader>Q', function()
 end, { desc = 'Force close buffer' })
 
 map('n', '<leader>x', function()
-  vim.cmd 'write'
-  require('mini.bufremove').delete(0, false)
+  local bufname = vim.api.nvim_buf_get_name(0)
+  local modified = vim.bo.modified
+  -- Only save if buffer has a name and is modified
+  if bufname ~= '' and modified then
+    vim.cmd 'write'
+  end
+  -- Delete the buffer first
+  require('mini.bufremove').delete(0, true)
+  -- Close window if only empty buffers remain
+  local remaining = vim.tbl_filter(function(b)
+    return vim.api.nvim_buf_is_valid(b) and vim.bo[b].buflisted and vim.api.nvim_buf_get_name(b) ~= ''
+  end, vim.api.nvim_list_bufs())
+  if #remaining == 0 then
+    vim.cmd 'quit'
+  end
 end, { desc = 'Save and close buffer' })
 
 -- Terminal mode
 map('t', '<Esc><Esc>', '<C-\\><C-n>', { desc = 'Exit terminal mode' })
+
+-- Preview images/SVGs in default app
+map('n', '<leader>pv', function()
+  local file = vim.fn.expand '%:p'
+  if file ~= '' then
+    vim.fn.system { 'open', file }
+  end
+end, { desc = 'Preview file in default app' })
 
 -- Claude Review Workflow (git commit-based checkpoints)
 

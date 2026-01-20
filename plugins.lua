@@ -234,6 +234,12 @@ require('lazy').setup({
     },
     opts = {
       filesystem = {
+        filtered_items = {
+          visible = true, -- Show hidden files instead of grouping them
+          hide_dotfiles = false,
+          hide_gitignored = false,
+          never_show = {},
+        },
         window = {
           mappings = {
             ['\\'] = 'close_window',
