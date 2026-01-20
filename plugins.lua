@@ -447,7 +447,7 @@ require('lazy').setup({
           end
 
           if client and client_supports_method(client, vim.lsp.protocol.Methods.textDocument_inlayHint, event.buf) then
-            lspmap('<leader>th', function()
+            lspmap('<leader>ih', function()
               vim.lsp.inlay_hint.enable(not vim.lsp.inlay_hint.is_enabled { bufnr = event.buf })
             end, 'Toggle Inlay Hints')
           end
@@ -577,7 +577,40 @@ require('lazy').setup({
         additional_vim_regex_highlighting = { 'ruby' },
       },
       indent = { enable = true, disable = { 'ruby' } },
+      matchup = {
+        enable = true, -- enables vim-matchup treesitter integration
+      },
     },
+  },
+
+  -- Tag matching: jump between opening/closing tags with %
+  {
+    'andymass/vim-matchup',
+    event = 'BufReadPost',
+    dependencies = { 'nvim-treesitter/nvim-treesitter' },
+    config = function()
+      -- Enable treesitter integration for better tag matching
+      vim.g.matchup_matchparen_offscreen = { method = 'popup' }
+    end,
+    init = function()
+      -- Enable treesitter integration in nvim-treesitter config
+      vim.g.matchup_matchparen_deferred = 1
+    end,
+  },
+
+  -- Markdown preview
+  {
+    'iamcco/markdown-preview.nvim',
+    cmd = { 'MarkdownPreviewToggle', 'MarkdownPreview', 'MarkdownPreviewStop' },
+    ft = { 'markdown' },
+    build = 'cd app && npm install',
+    keys = {
+      { '<leader>mp', '<cmd>MarkdownPreviewToggle<CR>', desc = 'Toggle Markdown Preview' },
+    },
+    init = function()
+      vim.g.mkdp_auto_close = 0 -- Don't auto-close preview when switching buffers
+      vim.g.mkdp_filetypes = { 'markdown' }
+    end,
   },
 }, {
   ui = {

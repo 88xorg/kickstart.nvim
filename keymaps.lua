@@ -18,6 +18,10 @@ map('n', '<C-k>', '<C-w><C-k>', { desc = 'Focus upper window' })
 map({ 'n', 'x', 'o' }, '<leader>a', '^', opts)
 map({ 'n', 'x', 'o' }, '<leader>g', '$', opts)
 
+-- Normal mode: file navigation
+map('n', 'gg', 'gg0', { noremap = true, silent = true, desc = 'Go to start of file and line' })
+map('n', 'G', 'G$', { noremap = true, silent = true, desc = 'Go to end of file and line' })
+
 -- Normal mode: editing
 map('n', '<leader>w', ':w!<CR>', opts)
 map('n', '<leader>v', ':vsplit<CR>', opts)
@@ -40,7 +44,7 @@ map('n', '<leader>dq', vim.diagnostic.setloclist, { desc = 'Diagnostic quickfix 
 -- Normal mode: search
 map('n', '<leader>r', '/', { desc = 'Search in current file' })
 
-map('n', '<leader>j', function()
+map('n', '<leader>k', function()
   local ok, builtin = pcall(require, 'telescope.builtin')
   if ok then
     builtin.live_grep()
@@ -59,14 +63,8 @@ map('n', '<leader>e', function()
   end
 end, { desc = 'Explorer (Neo-tree)' })
 
--- Normal mode: Emmet
-map({ 'n', 'x' }, '<leader>t', function()
-  if vim.fn.exists ':EmmetBalanceTag' == 2 then
-    vim.cmd 'EmmetBalanceTag'
-  else
-    vim.notify('Emmet plugin not found', vim.log.levels.WARN)
-  end
-end, { desc = 'Match/balance tag' })
+-- Normal mode: jump between matching tags
+map({ 'n', 'x', 'o' }, '<leader>t', '%', { desc = 'Jump to matching tag/bracket', remap = true })
 
 -- Visual mode: indentation
 map('x', '>', '>gv', opts)
@@ -100,60 +98,71 @@ end, { desc = 'Save and close buffer' })
 -- Terminal mode
 map('t', '<Esc><Esc>', '<C-\\><C-n>', { desc = 'Exit terminal mode' })
 
--- Claude Review Workflow
-vim.g.claude_checkpoint = nil
+-- Claude Review Workflow (git commit-based checkpoints)
 
--- Create checkpoint (before running Claude prompt)
-map('n', '<leader>vc', function()
-  local head = vim.fn.system('git rev-parse HEAD'):gsub('%s+', '')
-  if vim.v.shell_error ~= 0 then
-    vim.notify('Not in a git repository', vim.log.levels.ERROR)
-    return
+-- Create checkpoint commit (stages all + commits)
+map('n', '<leader>jc', function()
+  local status = vim.fn.system('git status --porcelain')
+  if status ~= '' then
+    vim.fn.system('git add -A')
   end
-  vim.g.claude_checkpoint = head
-  vim.notify('Checkpoint: ' .. head:sub(1, 8), vim.log.levels.INFO)
+  local logs = vim.fn.system('git log --oneline --grep="^checkpoint:" -n 100')
+  local max = 0
+  for num in logs:gmatch('checkpoint:%s*(%d+)') do
+    max = math.max(max, tonumber(num))
+  end
+  local msg = 'checkpoint: ' .. (max + 1)
+  vim.fn.system('git commit --allow-empty -m "' .. msg .. '"')
+  if vim.v.shell_error == 0 then
+    vim.notify(msg, vim.log.levels.INFO)
+  else
+    vim.notify('Checkpoint failed', vim.log.levels.WARN)
+  end
 end, { desc = 'Create checkpoint' })
 
--- Accept prompt (commit staged changes)
-map('n', '<leader>va', function())
-  local staged = vim.fn.system 'git diff --cached --quiet'
+-- List checkpoints and reset to selected
+map('n', '<leader>jl', function()
+  local logs = vim.fn.system('git log --oneline --grep="^checkpoint:" -n 20')
+  if logs == '' then
+    vim.notify('No checkpoints found', vim.log.levels.WARN)
+    return
+  end
+  local items = {}
+  for line in logs:gmatch('[^\n]+') do
+    table.insert(items, line)
+  end
+  vim.ui.select(items, { prompt = 'Reset to checkpoint:' }, function(choice)
+    if not choice then return end
+    local hash = choice:match('^(%S+)')
+    vim.ui.select({ 'Yes, reset', 'Cancel' }, { prompt = 'Discard changes since ' .. hash .. '?' }, function(confirm)
+      if confirm == 'Yes, reset' then
+        vim.fn.system('git reset --hard ' .. hash)
+        vim.cmd('bufdo e!')
+        vim.notify('Reset to ' .. hash, vim.log.levels.INFO)
+      end
+    end)
+  end)
+end, { desc = 'List/reset checkpoints' })
+
+-- Accept changes (commit staged)
+map('n', '<leader>ja', function()
+  vim.fn.system('git diff --cached --quiet')
   if vim.v.shell_error == 0 then
     vim.notify('No staged changes', vim.log.levels.WARN)
     return
   end
-  vim.ui.input({ prompt = 'Commit message: ', default = 'Accept Claude changes' }, function(msg)
-    if not msg then
-      return
-    end
+  vim.ui.input({ prompt = 'Commit: ', default = 'Accept Claude changes' }, function(msg)
+    if not msg then return end
     vim.fn.system('git commit -m "' .. msg:gsub('"', '\\"') .. '"')
     if vim.v.shell_error == 0 then
       vim.notify('Committed', vim.log.levels.INFO)
-      vim.g.claude_checkpoint = nil
     else
       vim.notify('Commit failed', vim.log.levels.ERROR)
     end
   end)
-end, { desc = 'Accept prompt (commit)' })
-
--- Reject prompt (hard reset to checkpoint)
-map('n', '<leader>vx', function()
-  if not vim.g.claude_checkpoint then
-    vim.notify('No checkpoint set', vim.log.levels.ERROR)
-    return
-  end
-  vim.ui.select({ 'Yes, discard all', 'Cancel' }, {
-    prompt = 'Reset to ' .. vim.g.claude_checkpoint:sub(1, 8) .. '?',
-  }, function(choice)
-    if choice == 'Yes, discard all' then
-      vim.fn.system('git reset --hard ' .. vim.g.claude_checkpoint)
-      vim.cmd 'bufdo e!'
-      vim.notify('Reset complete', vim.log.levels.INFO)
-      vim.g.claude_checkpoint = nil
-    end
-  end)
-end, { desc = 'Reject prompt (reset)' })
+end, { desc = 'Accept (commit)' })
 
 -- Git status via telescope
-map('n', '<leader>vv', function()
+map('n', '<leader>jj', function()
   require('telescope.builtin').git_status()
 end, { desc = 'Git status' })
