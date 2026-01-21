@@ -19,8 +19,8 @@ map({ 'n', 'x', 'o' }, '<leader>a', '^', opts)
 map({ 'n', 'x', 'o' }, '<leader>g', '$', opts)
 
 -- Normal mode: file navigation
-map('n', 'gg', 'gg0', { noremap = true, silent = true, desc = 'Go to start of file and line' })
-map('n', 'G', 'G$', { noremap = true, silent = true, desc = 'Go to end of file and line' })
+map({ 'n', 'x' }, 'gg', 'gg0', { noremap = true, silent = true, desc = 'Go to start of file and line' })
+map({ 'n', 'x' }, 'G', 'G$', { noremap = true, silent = true, desc = 'Go to end of file and line' })
 
 -- Normal mode: editing
 map('n', '<leader>w', ':w!<CR>', opts)
@@ -81,9 +81,13 @@ map('x', '<leader>a', '^', opts)
 map('x', '<leader>g', '$', opts)
 map('x', 'u', '<Nop>', opts)
 map('x', 'U', '<Nop>', opts)
-map('x', '<leader>c', function()
-  require('Comment.api').toggle.linewise(vim.fn.visualmode())
-end, { desc = 'Toggle comment' })
+-- Toggle comment (Cmd+/ or Ctrl+/, works for all languages via mini.comment)
+map({ 'n', 'i' }, '<C-/>', 'gcc', { remap = true, desc = 'Toggle comment' })
+map({ 'n', 'i' }, '<C-_>', 'gcc', { remap = true, desc = 'Toggle comment' })
+map('x', '<C-/>', 'gc', { remap = true, desc = 'Toggle comment' })
+map('x', '<C-_>', 'gc', { remap = true, desc = 'Toggle comment' })
+map({ 'n', 'i' }, '<D-/>', 'gcc', { remap = true, desc = 'Toggle comment' })
+map('x', '<D-/>', 'gc', { remap = true, desc = 'Toggle comment' })
 
 -- Buffer management
 map('n', '<leader>Q', function()

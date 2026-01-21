@@ -18,14 +18,12 @@ require('lazy').setup({
 
   -- UI: colorscheme
   {
-    'noahfrederick/vim-hemisu',
+    name = 'hacker-colorscheme',
+    dir = vim.fn.stdpath('config') .. '/colors',
     lazy = false,
     priority = 1000,
     config = function()
-      vim.cmd.colorscheme 'hemisu'
-    end,
-    init = function()
-      vim.cmd 'colorscheme hemisu'
+      vim.cmd.colorscheme 'hacker'
     end,
   },
 
@@ -91,6 +89,7 @@ require('lazy').setup({
           update_n_lines = 'gsn',
         },
       }
+      require('mini.comment').setup()
       local statusline = require 'mini.statusline'
       statusline.setup { use_icons = vim.g.have_nerd_font }
       statusline.section_location = function()
@@ -243,13 +242,24 @@ require('lazy').setup({
         window = {
           mappings = {
             ['\\'] = 'close_window',
-            ['<Space>'] = 'open',
+            ['<CR>'] = { 'open', nowait = true },
+            ['<Space>'] = 'none',
           },
         },
       },
       window = {
         mappings = {
-          ['<Space>'] = 'open',
+          ['<CR>'] = { 'open', nowait = true },
+          ['<Space>'] = 'none',
+        },
+      },
+      open_files_do_not_replace_types = { 'terminal', 'trouble', 'qf' },
+      event_handlers = {
+        {
+          event = 'file_opened',
+          handler = function()
+            require('neo-tree.command').execute { action = 'focus' }
+          end,
         },
       },
     },
@@ -587,6 +597,44 @@ require('lazy').setup({
         enable = true, -- enables vim-matchup treesitter integration
       },
     },
+  },
+
+  -- Rainbow bracket pairs (parentheses only, no HTML tags)
+  {
+    'HiPhish/rainbow-delimiters.nvim',
+    event = 'BufReadPost',
+    config = function()
+      local rainbow = require 'rainbow-delimiters'
+      require('rainbow-delimiters.setup').setup {
+        strategy = {
+          [''] = rainbow.strategy['global'],
+          vim = rainbow.strategy['local'],
+          html = rainbow.strategy['noop'],
+          xml = rainbow.strategy['noop'],
+        },
+        query = {
+          [''] = 'rainbow-delimiters',
+          lua = 'rainbow-blocks',
+          tsx = 'rainbow-parens',
+          jsx = 'rainbow-parens',
+          javascript = 'rainbow-parens',
+          typescript = 'rainbow-parens',
+        },
+        priority = {
+          [''] = 110,
+          lua = 210,
+        },
+        highlight = {
+          'RainbowDelimiterRed',
+          'RainbowDelimiterYellow',
+          'RainbowDelimiterBlue',
+          'RainbowDelimiterOrange',
+          'RainbowDelimiterGreen',
+          'RainbowDelimiterViolet',
+          'RainbowDelimiterCyan',
+        },
+      }
+    end,
   },
 
   -- Tag matching: jump between opening/closing tags with %
