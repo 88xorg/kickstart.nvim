@@ -41,6 +41,20 @@ end, { desc = 'Format buffer' })
 map('n', 'gH', vim.lsp.buf.hover, { desc = 'LSP Hover' })
 map('n', '<leader>dq', vim.diagnostic.setloclist, { desc = 'Diagnostic quickfix list' })
 
+-- Go to definition (gd and Cmd+click)
+map('n', 'gd', vim.lsp.buf.definition, { desc = 'Go to definition' })
+map('n', '<D-LeftMouse>', '<LeftMouse><cmd>lua vim.lsp.buf.definition()<CR>', { desc = 'Cmd+click go to definition' })
+
+-- Smart hover: show diagnostic if present, otherwise show hover info (like VSCode)
+map('n', 'gh', function()
+  local diagnostics = vim.diagnostic.get(0, { lnum = vim.fn.line('.') - 1 })
+  if #diagnostics > 0 then
+    vim.diagnostic.open_float(nil, { focus = false, scope = 'cursor' })
+  else
+    vim.lsp.buf.hover()
+  end
+end, { desc = 'Show error or hover info' })
+
 -- Normal mode: search
 map('n', '<leader>r', '/', { desc = 'Search in current file' })
 

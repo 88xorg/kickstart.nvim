@@ -57,18 +57,18 @@ local function hi(group, opts)
 end
 
 -- Editor UI
-hi('Normal', { fg = colors.fg, bg = colors.bg })
-hi('NormalFloat', { fg = colors.fg, bg = colors.bg })
-hi('FloatBorder', { fg = colors.black, bg = colors.bg })
+hi('Normal', { fg = colors.fg, bg = colors.none })
+hi('NormalFloat', { fg = colors.fg, bg = colors.none })
+hi('FloatBorder', { fg = colors.black, bg = colors.none })
 hi('ColorColumn', { bg = colors.gray })
 hi('Cursor', { fg = colors.bg, bg = colors.fg })
 hi('CursorLine', { bg = colors.gray })
 hi('CursorLineNr', { fg = colors.fg, bg = colors.gray })
 hi('LineNr', { fg = colors.fg_dark })
-hi('SignColumn', { fg = colors.fg, bg = colors.bg })
-hi('VertSplit', { fg = colors.black, bg = colors.bg })
+hi('SignColumn', { fg = colors.fg, bg = colors.none })
+hi('VertSplit', { fg = colors.black, bg = colors.none })
 hi('Folded', { fg = colors.fg_dark, bg = colors.gray })
-hi('FoldColumn', { fg = colors.fg_dark, bg = colors.bg })
+hi('FoldColumn', { fg = colors.fg_dark, bg = colors.none })
 
 -- Selection
 hi('Visual', { bg = colors.gray })
@@ -252,8 +252,8 @@ hi('TelescopeSelectionCaret', { fg = colors.green })
 hi('TelescopeMatching', { fg = colors.green })
 
 -- Neo-tree
-hi('NeoTreeNormal', { fg = colors.fg, bg = colors.bg })
-hi('NeoTreeNormalNC', { fg = colors.fg, bg = colors.bg })
+hi('NeoTreeNormal', { fg = colors.fg, bg = colors.none })
+hi('NeoTreeNormalNC', { fg = colors.fg, bg = colors.none })
 hi('NeoTreeDirectoryIcon', { fg = colors.green })
 hi('NeoTreeDirectoryName', { fg = colors.fg })
 hi('NeoTreeFileName', { fg = colors.fg })

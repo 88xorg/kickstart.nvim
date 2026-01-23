@@ -503,10 +503,38 @@ require('lazy').setup({
             },
           },
         },
+        emmet_ls = {
+          filetypes = { 'html', 'css', 'javascriptreact', 'typescriptreact', 'astro' },
+          init_options = {
+            html = {
+              options = {
+                ['output.selfClosingStyle'] = 'xhtml',
+              },
+            },
+            javascriptreact = {
+              options = {
+                ['jsx.enabled'] = true,
+                ['markup.attributes'] = {
+                  ['class'] = 'className',
+                  ['for'] = 'htmlFor',
+                },
+              },
+            },
+            typescriptreact = {
+              options = {
+                ['jsx.enabled'] = true,
+                ['markup.attributes'] = {
+                  ['class'] = 'className',
+                  ['for'] = 'htmlFor',
+                },
+              },
+            },
+          },
+        },
       }
 
       local ensure_installed = vim.tbl_keys(servers or {})
-      vim.list_extend(ensure_installed, { 'stylua' })
+      vim.list_extend(ensure_installed, { 'stylua', 'emmet-ls' })
       require('mason-tool-installer').setup { ensure_installed = ensure_installed }
 
       require('mason-lspconfig').setup {
@@ -544,7 +572,11 @@ require('lazy').setup({
       'folke/lazydev.nvim',
     },
     opts = {
-      keymap = { preset = 'default' },
+      keymap = {
+        preset = 'default',
+        ['<Tab>'] = { 'select_and_accept', 'fallback' },
+        ['<S-Tab>'] = { 'select_prev', 'fallback' },
+      },
       appearance = { nerd_font_variant = 'mono' },
       completion = { documentation = { auto_show = false, auto_show_delay_ms = 500 } },
       sources = {
@@ -650,6 +682,20 @@ require('lazy').setup({
       -- Enable treesitter integration in nvim-treesitter config
       vim.g.matchup_matchparen_deferred = 1
     end,
+  },
+
+  -- Auto rename/close HTML tags
+  {
+    'windwp/nvim-ts-autotag',
+    event = 'InsertEnter',
+    dependencies = { 'nvim-treesitter/nvim-treesitter' },
+    opts = {
+      opts = {
+        enable_close = true,
+        enable_rename = true,
+        enable_close_on_slash = true,
+      },
+    },
   },
 
   -- Markdown preview

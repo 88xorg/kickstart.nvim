@@ -11,9 +11,9 @@ vim.o.list = true
 vim.opt.listchars = { tab = '» ', trail = '·', nbsp = '␣' }
 
 -- Indentation
-vim.o.tabstop = 1
-vim.o.shiftwidth = 1
-vim.o.softtabstop = 1
+vim.o.tabstop = 2
+vim.o.shiftwidth = 2
+vim.o.softtabstop = 2
 vim.o.expandtab = true
 vim.o.breakindent = true
 
