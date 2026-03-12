@@ -4,6 +4,8 @@ local opts = { noremap = true, silent = true }
 -- Insert mode
 map('i', 'kj', '<Esc>', opts)
 map('i', '<C-v>', '<C-r>+', opts)
+map('i', '<A-BS>', '<C-w>', { noremap = true, silent = true, desc = 'Delete word backward' })
+map('i', '<D-BS>', '<C-u>', { noremap = true, silent = true, desc = 'Delete to start of line' })
 
 -- Normal mode: buffer/window navigation
 map('n', '<S-h>', ':bprevious<CR>', opts)
@@ -56,7 +58,14 @@ map('n', 'gh', function()
 end, { desc = 'Show error or hover info' })
 
 -- Normal mode: search
-map('n', '<leader>r', '/', { desc = 'Search in current file' })
+map('n', '<leader>r', function()
+  vim.ui.input({ prompt = 'Search: ' }, function(pattern)
+    if not pattern or pattern == '' then return end
+    vim.fn.setreg('/', '\\V' .. vim.fn.escape(pattern, '\\'))
+    vim.opt.hlsearch = true
+    vim.cmd('normal! n')
+  end)
+end, { desc = 'Search in current file' })
 
 map('n', '<leader>k', function()
   local ok, builtin = pcall(require, 'telescope.builtin')
@@ -77,8 +86,55 @@ map('n', '<leader>e', function()
   end
 end, { desc = 'Explorer (Neo-tree)' })
 
--- Normal mode: jump between matching tags
-map({ 'n', 'x', 'o' }, '<leader>t', '%', { desc = 'Jump to matching tag/bracket', remap = true })
+-- Normal mode: jump between matching opening/closing tags
+map({ 'n', 'x', 'o' }, '<leader>t', function()
+  local node = vim.treesitter.get_node()
+  if not node then
+    vim.cmd('normal! %')
+    return
+  end
+
+  -- Walk up to find the enclosing element
+  local element = node
+  while element do
+    local t = element:type()
+    if t == 'jsx_element' or t == 'element' then
+      break
+    end
+    element = element:parent()
+  end
+
+  if not element then
+    vim.cmd('normal! %')
+    return
+  end
+
+  local open_tag, close_tag
+  for child in element:iter_children() do
+    local ct = child:type()
+    if ct == 'jsx_opening_element' or ct == 'start_tag' then
+      open_tag = child
+    elseif ct == 'jsx_closing_element' or ct == 'end_tag' or ct == 'close_tag' then
+      close_tag = child
+    end
+  end
+
+  if not open_tag or not close_tag then
+    vim.cmd('normal! %')
+    return
+  end
+
+  local cursor_row = vim.fn.line('.') - 1
+  local close_sr, close_sc = close_tag:start()
+  local open_sr, open_sc = open_tag:start()
+
+  -- If cursor is before the closing tag, jump to closing tag; otherwise jump to opening tag
+  if cursor_row < close_sr or (cursor_row == close_sr and vim.fn.col('.') - 1 < close_sc) then
+    vim.api.nvim_win_set_cursor(0, { close_sr + 1, close_sc })
+  else
+    vim.api.nvim_win_set_cursor(0, { open_sr + 1, open_sc })
+  end
+end, { desc = 'Jump to matching tag' })
 
 -- Visual mode: indentation
 map('x', '>', '>gv', opts)
@@ -139,12 +195,16 @@ end, { desc = 'Preview file in default app' })
 
 -- Claude Review Workflow (git commit-based checkpoints)
 
--- Create checkpoint commit (stages all + commits)
-map('n', '<leader>jc', function()
+-- Helper: create a checkpoint commit
+local function create_checkpoint(auto)
+  local in_git = vim.fn.system('git rev-parse --is-inside-work-tree 2>/dev/null')
+  if not in_git:match('true') then return end
   local status = vim.fn.system('git status --porcelain')
-  if status ~= '' then
-    vim.fn.system('git add -A')
+  if status == '' then
+    if not auto then vim.notify('Nothing to checkpoint', vim.log.levels.INFO) end
+    return
   end
+  vim.fn.system('git add -A')
   local logs = vim.fn.system('git log --oneline --grep="^checkpoint:" -n 100')
   local max = 0
   for num in logs:gmatch('checkpoint:%s*(%d+)') do
@@ -153,11 +213,28 @@ map('n', '<leader>jc', function()
   local msg = 'checkpoint: ' .. (max + 1)
   vim.fn.system('git commit --allow-empty -m "' .. msg .. '"')
   if vim.v.shell_error == 0 then
-    vim.notify(msg, vim.log.levels.INFO)
-  else
+    vim.notify((auto and 'auto ' or '') .. msg, vim.log.levels.INFO)
+  elseif not auto then
     vim.notify('Checkpoint failed', vim.log.levels.WARN)
   end
-end, { desc = 'Create checkpoint' })
+end
+
+-- Auto-checkpoint on launch (safety net before Claude sessions)
+vim.api.nvim_create_autocmd('VimEnter', {
+  callback = function()
+    vim.schedule(function() create_checkpoint(true) end)
+  end,
+})
+
+-- Auto-reload buffers when returning to Neovim (picks up Claude Code file edits)
+vim.api.nvim_create_autocmd('FocusGained', {
+  callback = function()
+    vim.cmd('checktime')
+  end,
+})
+
+-- Create checkpoint commit (manual)
+map('n', '<leader>jc', function() create_checkpoint(false) end, { desc = 'Create checkpoint' })
 
 -- List checkpoints and reset to selected
 map('n', '<leader>jl', function()
@@ -183,23 +260,60 @@ map('n', '<leader>jl', function()
   end)
 end, { desc = 'List/reset checkpoints' })
 
--- Accept changes (commit staged)
+-- Accept changes (squash checkpoint commits into one clean commit)
 map('n', '<leader>ja', function()
-  vim.fn.system('git diff --cached --quiet')
-  if vim.v.shell_error == 0 then
-    vim.notify('No staged changes', vim.log.levels.WARN)
+  -- Find the first non-checkpoint ancestor (full hash, no color)
+  local base = vim.fn.system('git log --format=%H --invert-grep --grep="^checkpoint:" -n 1 --no-color')
+  base = base:gsub('%s+', '')
+  if base == '' then
+    vim.notify('No base commit found', vim.log.levels.ERROR)
     return
   end
-  vim.ui.input({ prompt = 'Commit: ', default = 'Accept Claude changes' }, function(msg)
-    if not msg then return end
+
+  -- Count commits between base and HEAD (these are the checkpoints)
+  local count_str = vim.fn.system('git rev-list --count ' .. base .. '..HEAD')
+  count_str = count_str:gsub('%s+', '')
+  local checkpoint_count = tonumber(count_str) or 0
+
+  -- Stage any remaining unstaged work
+  local status = vim.fn.system('git status --porcelain')
+  local has_unstaged = status ~= ''
+  if has_unstaged then
+    vim.fn.system('git add -A')
+  end
+
+  if checkpoint_count == 0 and not has_unstaged then
+    vim.notify('Nothing to commit', vim.log.levels.WARN)
+    return
+  end
+
+  local prompt_msg = 'Commit'
+  if checkpoint_count > 0 then
+    prompt_msg = prompt_msg .. ' (squashing ' .. checkpoint_count .. ' checkpoints)'
+  end
+  prompt_msg = prompt_msg .. ': '
+
+  vim.ui.input({ prompt = prompt_msg, default = 'Accept Claude changes' }, function(msg)
+    if not msg or msg == '' then return end
+    if checkpoint_count > 0 then
+      local result = vim.fn.system('git reset --soft ' .. base .. ' 2>&1')
+      if vim.v.shell_error ~= 0 then
+        vim.notify('Reset failed: ' .. result, vim.log.levels.ERROR)
+        return
+      end
+    end
     vim.fn.system('git commit -m "' .. msg:gsub('"', '\\"') .. '"')
     if vim.v.shell_error == 0 then
-      vim.notify('Committed', vim.log.levels.INFO)
+      local info = 'Committed'
+      if checkpoint_count > 0 then
+        info = 'Squashed ' .. checkpoint_count .. ' checkpoints into one commit'
+      end
+      vim.notify(info, vim.log.levels.INFO)
     else
       vim.notify('Commit failed', vim.log.levels.ERROR)
     end
   end)
-end, { desc = 'Accept (commit)' })
+end, { desc = 'Accept (squash + commit)' })
 
 -- Git status via telescope
 map('n', '<leader>jj', function()

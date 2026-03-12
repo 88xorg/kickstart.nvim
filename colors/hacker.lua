@@ -33,6 +33,12 @@ local colors = {
   red = '#c05776',
   yellow = '#a3be8c',
 
+  -- Diff backgrounds (dark-tinted for filled line highlighting)
+  diff_add_bg = '#1a3320',
+  diff_delete_bg = '#331a22',
+  diff_change_bg = '#1a2640',
+  diff_text_bg = '#253a55',
+
   none = 'NONE',
 }
 
@@ -100,16 +106,21 @@ hi('ModeMsg', { fg = colors.fg })
 hi('MoreMsg', { fg = colors.green })
 hi('Question', { fg = colors.green })
 
--- Diff
-hi('DiffAdd', { fg = colors.green_light, bg = colors.bg })
-hi('DiffChange', { fg = colors.blue, bg = colors.bg })
-hi('DiffDelete', { fg = colors.red, bg = colors.bg })
-hi('DiffText', { fg = colors.blue, bg = colors.gray })
+-- Diff (filled backgrounds for diffview / vimdiff)
+hi('DiffAdd', { fg = colors.fg, bg = colors.diff_add_bg })
+hi('DiffChange', { fg = colors.fg, bg = colors.diff_change_bg })
+hi('DiffDelete', { fg = colors.fg_dark, bg = colors.diff_delete_bg })
+hi('DiffText', { fg = colors.fg_light, bg = colors.diff_text_bg })
 
--- Git signs
+-- Git signs (gutter indicators)
 hi('GitSignsAdd', { fg = colors.green_light })
 hi('GitSignsChange', { fg = colors.blue })
 hi('GitSignsDelete', { fg = colors.red })
+-- Git signs line highlights (for preview_hunk / toggle_deleted)
+hi('GitSignsAddLn', { bg = colors.diff_add_bg })
+hi('GitSignsChangeLn', { bg = colors.diff_change_bg })
+hi('GitSignsDeleteLn', { bg = colors.diff_delete_bg })
+hi('GitSignsDeleteVirtLn', { fg = colors.fg_dark, bg = colors.diff_delete_bg })
 
 -- Spell
 hi('SpellBad', { sp = colors.red, style = 'undercurl' })
@@ -128,7 +139,7 @@ hi('DiagnosticUnderlineInfo', { sp = colors.green, style = 'undercurl' })
 hi('DiagnosticUnderlineHint', { sp = colors.purple, style = 'undercurl' })
 
 -- Syntax
-hi('Comment', { fg = colors.fg_dark, style = 'italic' })
+hi('Comment', { fg = colors.fg_dark })
 hi('Constant', { fg = colors.green })
 hi('String', { fg = colors.green_light })
 hi('Character', { fg = colors.blue })
@@ -162,7 +173,7 @@ hi('Special', { fg = colors.green })
 hi('SpecialChar', { fg = colors.blue })
 hi('Tag', { fg = colors.green })
 hi('Delimiter', { fg = colors.fg_light })
-hi('SpecialComment', { fg = colors.fg_dark, style = 'italic' })
+hi('SpecialComment', { fg = colors.fg_dark })
 hi('Debug', { fg = colors.green_dark })
 
 hi('Underlined', { style = 'underline' })
@@ -221,7 +232,7 @@ hi('@punctuation.delimiter', { fg = colors.fg_light })
 hi('@punctuation.bracket', { fg = colors.fg_light })
 hi('@punctuation.special', { fg = colors.green })
 
-hi('@comment', { fg = colors.fg_dark, style = 'italic' })
+hi('@comment', { fg = colors.fg_dark })
 
 hi('@tag', { fg = colors.green })
 hi('@tag.attribute', { fg = colors.purple })
@@ -230,7 +241,7 @@ hi('@tag.delimiter', { fg = colors.green })
 hi('@namespace', { fg = colors.purple })
 
 hi('@text.strong', { style = 'bold' })
-hi('@text.emphasis', { style = 'italic' })
+hi('@text.emphasis', { style = 'NONE' })
 hi('@text.underline', { style = 'underline' })
 hi('@text.title', { fg = colors.green })
 hi('@text.literal', { fg = colors.purple })

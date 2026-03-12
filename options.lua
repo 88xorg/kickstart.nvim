@@ -29,6 +29,7 @@ vim.o.splitbelow = true
 vim.o.confirm = true
 
 -- System integration
+vim.o.autoread = true
 vim.o.mouse = 'a'
 vim.opt.clipboard = 'unnamedplus'
 vim.schedule(function()

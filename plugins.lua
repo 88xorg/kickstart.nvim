@@ -78,6 +78,7 @@ require('lazy').setup({
     'echasnovski/mini.nvim',
     config = function()
       require('mini.ai').setup { n_lines = 500 }
+      require('mini.pairs').setup()
       require('mini.surround').setup {
         mappings = {
           add = 'gsa',
@@ -180,6 +181,30 @@ require('lazy').setup({
     },
     config = function()
       require('telescope').setup {
+        defaults = {
+          file_ignore_patterns = {
+            'node_modules/',
+            'dist/',
+            'build/',
+            '.next/',
+            '.nuxt/',
+            '.output/',
+            'coverage/',
+            '.cache/',
+            '.turbo/',
+            '.vercel/',
+            '.netlify/',
+            '%.min%.js',
+            '%.min%.css',
+            '%.map',
+            'package%-lock%.json',
+            'yarn%.lock',
+            'pnpm%-lock%.yaml',
+            'bun%.lockb',
+            'target/',
+            'Cargo%.lock',
+          },
+        },
         extensions = {
           ['ui-select'] = {
             require('telescope.themes').get_dropdown(),
@@ -233,6 +258,10 @@ require('lazy').setup({
     },
     opts = {
       filesystem = {
+        follow_current_file = {
+          enabled = true,
+          leave_dirs_open = true, -- keep parent dirs open after revealing
+        },
         filtered_items = {
           visible = true, -- Show hidden files instead of grouping them
           hide_dotfiles = false,
@@ -389,6 +418,68 @@ require('lazy').setup({
   -- Editor: auto-detect indentation
   'NMAC427/guess-indent.nvim',
 
+  -- Editor: multi-cursor (VS Code-like)
+  {
+    'mg979/vim-visual-multi',
+    branch = 'master',
+    init = function()
+      vim.g.VM_maps = {
+        ['Add Cursor At Pos'] = '<leader>m',
+      }
+    end,
+  },
+
+  -- Editor: search and replace (VSCode-like)
+  {
+    'nvim-pack/nvim-spectre',
+    dependencies = { 'nvim-lua/plenary.nvim' },
+    keys = {
+      { '<leader>pr', function() require('spectre').toggle() end, desc = 'Search & Replace (Spectre)' },
+      { '<leader>pw', function() require('spectre').open_visual({ select_word = true }) end, desc = 'Search current word (Spectre)' },
+      { '<leader>pf', function() require('spectre').open_file_search({ select_word = true }) end, desc = 'Search in current file (Spectre)' },
+    },
+    opts = {
+      default = {
+        find = {
+          cmd = 'rg',
+          options = {
+            'ignore-case',
+            'hidden',
+          },
+        },
+      },
+      find_engine = {
+        rg = {
+          cmd = 'rg',
+          args = {
+            '--color=never',
+            '--no-heading',
+            '--with-filename',
+            '--line-number',
+            '--column',
+            '--glob=!node_modules/**',
+            '--glob=!dist/**',
+            '--glob=!build/**',
+            '--glob=!.git/**',
+            '--glob=!*.min.js',
+            '--glob=!*.min.css',
+            '--glob=!package-lock.json',
+            '--glob=!yarn.lock',
+            '--glob=!pnpm-lock.yaml',
+            '--glob=!*.map',
+            '--glob=!.next/**',
+            '--glob=!.nuxt/**',
+            '--glob=!coverage/**',
+            '--glob=!.cache/**',
+            '--glob=!__pycache__/**',
+            '--glob=!.venv/**',
+            '--glob=!venv/**',
+          },
+        },
+      },
+    },
+  },
+
   -- Editor: buffer management
   { 'echasnovski/mini.bufremove', version = '*' },
 
@@ -493,6 +584,7 @@ require('lazy').setup({
 
       local capabilities = require('blink.cmp').get_lsp_capabilities()
       local servers = {
+        astro = {},
         ts_ls = {},
         lua_ls = {
           settings = {
@@ -502,6 +594,9 @@ require('lazy').setup({
               },
             },
           },
+        },
+        tailwindcss = {
+          filetypes = { 'html', 'css', 'javascript', 'javascriptreact', 'typescript', 'typescriptreact', 'astro', 'svelte', 'vue' },
         },
         emmet_ls = {
           filetypes = { 'html', 'css', 'javascriptreact', 'typescriptreact', 'astro' },
@@ -534,7 +629,7 @@ require('lazy').setup({
       }
 
       local ensure_installed = vim.tbl_keys(servers or {})
-      vim.list_extend(ensure_installed, { 'stylua', 'emmet-ls' })
+      vim.list_extend(ensure_installed, { 'stylua', 'emmet-ls', 'prettierd' })
       require('mason-tool-installer').setup { ensure_installed = ensure_installed }
 
       require('mason-lspconfig').setup {
@@ -608,6 +703,23 @@ require('lazy').setup({
       formatters_by_ft = {
         lua = { 'stylua' },
         javascript = { 'prettierd', 'prettier', stop_after_first = true },
+        typescript = { 'prettierd', 'prettier', stop_after_first = true },
+        javascriptreact = { 'prettierd', 'prettier', stop_after_first = true },
+        typescriptreact = { 'prettierd', 'prettier', stop_after_first = true },
+        astro = { 'prettier_astro' },
+        css = { 'prettierd', 'prettier', stop_after_first = true },
+        html = { 'prettierd', 'prettier', stop_after_first = true },
+        json = { 'prettierd', 'prettier', stop_after_first = true },
+      },
+      formatters = {
+        prettier_astro = {
+          command = 'prettier',
+          args = {
+            '--plugin', '/usr/local/lib/node_modules/prettier-plugin-astro/dist/index.js',
+            '--stdin-filepath', '$FILENAME',
+          },
+          stdin = true,
+        },
       },
     },
   },
@@ -618,7 +730,7 @@ require('lazy').setup({
     build = ':TSUpdate',
     main = 'nvim-treesitter.configs',
     opts = {
-      ensure_installed = { 'bash', 'c', 'diff', 'html', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'query', 'vim', 'vimdoc' },
+      ensure_installed = { 'astro', 'bash', 'c', 'css', 'diff', 'html', 'javascript', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'query', 'tsx', 'typescript', 'vim', 'vimdoc' },
       auto_install = true,
       highlight = {
         enable = true,
@@ -643,6 +755,7 @@ require('lazy').setup({
           vim = rainbow.strategy['local'],
           html = rainbow.strategy['noop'],
           xml = rainbow.strategy['noop'],
+          astro = rainbow.strategy['global'],
         },
         query = {
           [''] = 'rainbow-delimiters',
@@ -651,6 +764,7 @@ require('lazy').setup({
           jsx = 'rainbow-parens',
           javascript = 'rainbow-parens',
           typescript = 'rainbow-parens',
+          astro = 'rainbow-parens',
         },
         priority = {
           [''] = 110,
@@ -675,12 +789,11 @@ require('lazy').setup({
     event = 'BufReadPost',
     dependencies = { 'nvim-treesitter/nvim-treesitter' },
     config = function()
-      -- Enable treesitter integration for better tag matching
       vim.g.matchup_matchparen_offscreen = { method = 'popup' }
-    end,
-    init = function()
-      -- Enable treesitter integration in nvim-treesitter config
+      -- Disable matching of quotes/strings - only match brackets and tags
+      vim.g.matchup_delim_noskips = 0
       vim.g.matchup_matchparen_deferred = 1
+      vim.g.matchup_matchparen_hi_surround_always = 0
     end,
   },
 
