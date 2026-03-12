@@ -1,4 +1,3 @@
--- TEST COMMENT: Another test change to review
 -- Display
 vim.g.have_nerd_font = false
 vim.o.number = true
